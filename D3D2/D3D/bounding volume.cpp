@@ -382,7 +382,35 @@ bool ComputeBoundingBox(ID3DXMesh* mesh, d3d::BoundingBox* box)
 
 	return true;
 }
+float Vproduct(Vertex *a,Vertex *b){
+	return a->_x * b->_x + a->_y * b->_y + a->_z * b->_z;
+}
+bool TestSegPlane(Vertex *p0,Vertex* d,Vertex *n, int dd){
+	float t = (dd-Vproduct(p0,n))/Vproduct(d,n);
+	return t >= 0 && t <= 1;
+}
 
+bool SegCube(Vertex *p0,Vertex *p1,int i,int j,int k){
+		Vertex d(p1->_x - p0->_x,p1->_y-p0->_y,p1->_z-p0->_z);
+		float centx = (boundingBox._max.x + boundingBox._min.x)/2.0;
+		float centy = (boundingBox._max.y + boundingBox._min.y)/2.0;
+		float centz = (boundingBox._max.z + boundingBox._min.z)/2.0;
+		Vertex p(boundingBox._min.x + i*uL - centx,boundingBox._min.y + j*uL - centy,boundingBox._min.z + k*uL - centz);	
+		Vertex pp(p._x + uL, p._y + uL,p._z + uL);
+		Vertex n[6] = {
+			Vertex(-1,0,0),Vertex(0,-1,0),Vertex(0,0,-1),
+			Vertex(1,0,0),Vertex(0,1,0),Vertex(0,0,1)
+		};
+		for(int i = 0; i < 3; ++i){
+			if(TestSegPlane(p0,&d,&n[i],Vproduct(&n[i],&p))) return true;
+		}
+		for(int i = 3; i < 6; ++i){
+			if(TestSegPlane(p0,&d,&n[i],Vproduct(&n[i],&pp))) return true;
+		}
+}
+bool TriangleCube(Vertex *p0,Vertex *p1, Vertex *p2,int i,int j,int k){
+	return SegCube(p0,p1,i,j,k) || SegCube(p0,p2,i,j,k) || SegCube(p1,p2,i,j,k);
+}
 //得到单位包围盒的长度
 float GetBoxLength(d3d::BoundingBox* bb){
 	float minL = bb->_max.x-bb->_min.x;
@@ -407,6 +435,7 @@ void GetYiShe(ID3DXMesh* mesh,d3d::BoundingBox* bb){
 				F[ix][iy][iz] = true;
 				insert(ix,iy,iz,i);
 			}
+
 		}
 	}
 	mesh->UnlockVertexBuffer();
