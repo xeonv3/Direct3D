@@ -98,11 +98,21 @@ namespace d3d
 	struct BoundingBox
 	{
 		BoundingBox();
-
+		BoundingBox(const BoundingBox &b){
+			_min = b._min;
+			_max = b._max;
+		}
 		bool isPointInside(D3DXVECTOR3& p);
 
 		D3DXVECTOR3 _min;
 		D3DXVECTOR3 _max;
+	};
+
+	struct Plane{
+		Plane(){}
+		Plane(const D3DXVECTOR3&_n,float _d):n(_n),d(_d){}
+		D3DXVECTOR3 n;
+		float d;
 	};
 
 	//
@@ -110,6 +120,8 @@ namespace d3d
 	//
 	const float INFINITY = FLT_MAX;
 	const float EPSILON  = 0.001f;
+
+	int FloatCmp(float a,float b);
 }
 
 #endif // __d3dUtilityH__

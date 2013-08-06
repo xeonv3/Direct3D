@@ -11,7 +11,7 @@
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 #include "d3dUtility.h"
-
+#include "CD.h"
 bool d3d::InitD3D(
 	HINSTANCE hInstance,
 	int width, int height,
@@ -255,4 +255,9 @@ bool d3d::BoundingBox::isPointInside(D3DXVECTOR3& p)
 	{
 		return false;
 	}
+}
+
+int d3d::FloatCmp(float a,float b){
+	if(fabs(a-b)<EPSILON) return 0;
+	return a - b > 0 ? 1 : -1;
 }
