@@ -174,15 +174,19 @@
 			UniqueIdentifier="{4FC737F1-C7A5-4376-A066-2A32D752A2FF}"
 			>
 			<File
-				RelativePath=".\bounding volume.cpp"
-				>
-			</File>
-			<File
 				RelativePath=".\CD.cpp"
 				>
 			</File>
 			<File
+				RelativePath=".\CG.cpp"
+				>
+			</File>
+			<File
 				RelativePath=".\d3dUtility.cpp"
+				>
+			</File>
+			<File
+				RelativePath=".\Main.cpp"
 				>
 			</File>
 		</Filter>
@@ -193,6 +197,10 @@
 			>
 			<File
 				RelativePath=".\CD.h"
+				>
+			</File>
+			<File
+				RelativePath=".\CG.h"
 				>
 			</File>
 			<File

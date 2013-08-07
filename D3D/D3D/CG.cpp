@@ -1,39 +1,16 @@
-#ifndef __d3dIntersecH__
-#define __d3dIntersecH__
-#include"d3dUtility.h"
-#define EPSILON 1e-5
-inline float Dot(const D3DXVECTOR3 &p, const D3DXVECTOR3 &q){
-	return p.x * q.x + p.y * q.y + p.z * q.z;
-}
-inline D3DXVECTOR3 Cross(const D3DXVECTOR3 &p, const D3DXVECTOR3 &q){
-	return D3DXVECTOR3(p.y*q.z - p.z*q.y,p.z*q.x-p.x*q.z,p.x*q.y - p.y*q.x);
-}
-template<typename T>
-T Max3(const T &a, const T &b, const T &c){
-	return max(a,max(b,c));
-}
-template<typename T>
-T Min3(const T &a, const T &b, const T &c){
-	return min(a,min(b,c));
-}
-
-BOOL FLTEQ(const float &a, const float &b){
-	return fabs(a-b)<EPSILON;
-}
+#include "CG.h"
 //Test if AABB b intersects plane p
 BOOL TestAABBPlane(const d3d::BoundingBox &b, const d3d::Plane &p){
 	D3DXVECTOR3 c = (b._max + b._min) * 0.5f;
 	D3DXVECTOR3 e = b._max - c;
 
 	float r = e.x * abs(p.n.x) + e.y * abs(p.n.y) + e.z * abs(p.n.z);
-	
+
 	float s = Dot(p.n,c)-p.d;
 	return abs(s) <= r;
 }
 //AABB与三角形之间的相交测试
-BOOL TestTriangleAABB(D3DXVECTOR3 &v0, D3DXVECTOR3 &v1, D3DXVECTOR3 &v2, const d3d::BoundingBox &b){
-	float p0,p1,p2,r;
-
+BOOL TestTriangleAABB(D3DXVECTOR3 v0, D3DXVECTOR3 v1, D3DXVECTOR3 v2, const d3d::BoundingBox &b){
 	//compute box center and extents
 	D3DXVECTOR3 c = (b._min + b._max) * 0.5f;
 	D3DXVECTOR3 e = b._max - c;
@@ -58,6 +35,7 @@ BOOL TestTriangleAABB(D3DXVECTOR3 &v0, D3DXVECTOR3 &v1, D3DXVECTOR3 &v2, const d
 		float p0 = Dot(v0,a[i]);
 		float p1 = Dot(v1,a[i]);
 		float p2 = Dot(v2,a[i]);
+		float r = e.x * fabs(a[i].x) + e.y * fabs(a[i].y) + e.z * fabs(a[i].z); 
 		if(max(-Max3(p0,p1,p2),Min3(p0,p1,p2)) > r) return 0;
 	}
 
@@ -76,29 +54,43 @@ BOOL IntersectSegmentPlane(const D3DXVECTOR3 &a, const D3DXVECTOR3 &b, const d3d
 	}
 	return false;
 }
-BOOL PointInTriangle(const D3DXVECTOR3 &p, const D3DXVECTOR3 t[3]){
-	
+BOOL PointInTriangle2D(const D3DXVECTOR2 &p, const D3DXVECTOR2 t[3]){
+	float pab = Cross2D(t[0],p,t[1]);
+	float pbc = Cross2D(t[1],p,t[2]);
+	if(!FLTEQ(pab,0) && !FLTEQ(pbc,0) && ((pab < 0) ^ (pbc < 0))) return false;
+	float pca = Cross2D(t[2],p,t[0]);
+	if(!FLTEQ(pca,0) && ((pab<0)^(pca<0))) return false;
+	return true;
 }
-BOOL TestSegmentIntersect(const D3DXVECTOR3 &p, const D3DXVECTOR3 &q, const D3DXVECTOR3 &u, const D3DXVECTOR3 &v){
-	
+BOOL TestSegmentIntersect2D(const D3DXVECTOR2 &p1_start, const D3DXVECTOR2 &p1_end, const D3DXVECTOR2 &p2_start, const D3DXVECTOR2 &p2_end){
+	float d1 = Cross2D(p1_start,p1_end,p2_start);
+	float d2 = Cross2D(p1_start,p1_end,p2_end);
+	float d3 = Cross2D(p2_start,p2_end,p1_start);
+	float d4 = Cross2D(p2_start,p2_end,p1_end);
+	if(d1*d2 < 0 && d3 * d4 < 0)
+		return true;
+	else if(FLTEQ(d1,0) && Dot2D(p2_start,p1_start,p1_end) <=0)
+		return true;
+	else if(FLTEQ(d2,0) && Dot2D(p2_end,p1_start,p1_end) <= 0)
+		return true;
+	else if(FLTEQ(d3,0) && Dot2D(p1_start,p2_start,p2_end) <=0 )
+		return true;
+	else if(FLTEQ(d4,0) && Dot2D(p1_end,p2_start,p2_end) <= 0)
+		return true;
+	else
+		return false;
 }
-BOOL TestCoPlaneTriangle(const D3DXVECTOR3 t1[3],const D3DXVECTOR3 t2[3],const D3DXVECTOR3 &n){ //参数表示两个三角形的顶点及其法向量
+BOOL TestCoPlaneTriangle2D(const D3DXVECTOR2 t1[3],const D3DXVECTOR2 t2[3]){ //参数表示两个三角形的顶点及其法向量
 	//投影至最大面积的轴平面
 	int e[3][2] = {{1,0},{2,0},{2,1}};//边索引
-	if(n.x >= n.y && n.x >= n.z){
-		//测试边边是否相交
-		for(int i = 0; i < 3; ++i){
-			for(int j = 0; j < 3; ++j){
-				if(TestSegmentIntersect(t1[i][0],t1[i][1],t2[j][0],t2[j][1])) return true;
-			}
+	//测试边边是否相交
+	for(int i = 0; i < 3; ++i){
+		for(int j = 0; j < 3; ++j){
+			if(TestSegmentIntersect2D(t1[e[i][0]],t1[e[i][1]],t2[e[i][0]],t2[e[i][1]])) return true;
 		}
-		return PointInTriangle(t1[0],t2) || PointInTriangle(t2[0],t1);
-		//测试点是否在三角形内
-	}else if(n.y >= n.x && n.y >= n.z){
-		
-	}else{
-		
 	}
+	//测试点是否在三角形内
+	return PointInTriangle2D(t1[0],t2) || PointInTriangle2D(t2[0],t1);
 }
 BOOL TestTriangleTriangle(const D3DXVECTOR3 t1[3],const D3DXVECTOR3 t2[3]){
 	D3DXVECTOR3 n1 = Cross(t1[1]-t1[0],t1[2]-t1[0]);
@@ -115,7 +107,24 @@ BOOL TestTriangleTriangle(const D3DXVECTOR3 t1[3],const D3DXVECTOR3 t2[3]){
 	if(!bu || !bv){//共面或平行
 		//共面三角形相交测试
 		if(FLTEQ(Dot(t1[0],n1),Dot(t2[0],n2))){
-			return TestCoPlaneTriangle(t1,t2,n1);
+			D3DXVECTOR2 t3[3],t4[3];
+			if(n.x >= n.y && n.x >= n.z){
+				for(int i = 0; i < 3; ++i){
+					t3[i].x = t1[i].y; t3[i].y = t1[i].z; 
+					t4[i].x = t2[i].y; t4[i].y = t2[i].z; 
+				}
+			}else if(n.y >= n.x && n.y >= n.z){
+				for(int i = 0; i < 3; ++i){
+					t3[i].x = t1[i].x; t3[i].y = t1[i].z;
+					t4[i].x = t2[i].x; t4[i].y = t2[i].z;
+				}
+			}else{
+				for(int i = 0; i < 3; ++i){
+					t3[i].x = t1[i].x; t3[i].y = t1[i].y;
+					t4[i].x = t2[i].x; t4[i].y = t2[i].y;
+				}
+			}
+			return TestCoPlaneTriangle2D(t3,t4);
 		}
 		return false;
 	}
@@ -134,4 +143,3 @@ BOOL TestTriangleTriangle(const D3DXVECTOR3 t1[3],const D3DXVECTOR3 t2[3]){
 	float fu = Dot(uv,u), fv = Dot(uv,v), fm = Dot(uv,m), fn = Dot(uv,n);
 	return fu <= fn && fm <= fv;
 }
-#endif

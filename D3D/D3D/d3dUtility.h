@@ -119,9 +119,7 @@ namespace d3d
 	// Constants
 	//
 	const float INFINITY = FLT_MAX;
-	const float EPSILON  = 0.001f;
-
-	int FloatCmp(float a,float b);
+	const float EPSILON  = 0.0001f;
 }
 
 #endif // __d3dUtilityH__

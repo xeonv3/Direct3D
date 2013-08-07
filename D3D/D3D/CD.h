@@ -1,103 +1,101 @@
-#ifndef __d3dIntersecH__
-#define __d3dIntersecH__
-#include"d3dUtility.h"
-#define EPSILON 1e-5
-inline float Dot(const D3DXVECTOR3 &p, const D3DXVECTOR3 &q){
-	return p.x * q.x + p.y * q.y + p.z * q.z;
-}
-inline D3DXVECTOR3 Cross(const D3DXVECTOR3 &p, const D3DXVECTOR3 &q){
-	return D3DXVECTOR3(p.y*q.z - p.z*q.y,p.z*q.x-p.x*q.z,p.x*q.y - p.y*q.x);
-}
-template<typename T>
-T Max3(const T &a, const T &b, const T &c){
-	return max(a,max(b,c));
-}
-template<typename T>
-T Min3(const T &a, const T &b, const T &c){
-	return min(a,min(b,c));
-}
+#ifndef __D3DCOLLISIONDETECTIONH__
+#define __D3DCOLLISIONDETECTIONH__
+#include "CG.h"
+#include "d3dUtility.h"
+#include <vector>
+const float ENDEP = 1.0f;
+struct AABB{
+	d3d::BoundingBox bb;
+	std::vector<int> faces;
+	AABB *left, *right;
+	AABB(){}
+	AABB(const d3d::BoundingBox& b):bb(b){}
+};
+BOOL TestBoxIntersect(const d3d::BoundingBox &b1,const d3d::BoundingBox &b2);
+void ConstructAABB(AABB *r,ID3DXMesh* Mesh);
 
-BOOL FLTEQ(const float &a, const float &b){
-	return fabs(a-b)<EPSILON;
-}
-//Test if AABB b intersects plane p
-BOOL TestAABBPlane(const d3d::BoundingBox &b, const d3d::Plane &p){
-	D3DXVECTOR3 c = (b._max + b._min) * 0.5f;
-	D3DXVECTOR3 e = b._max - c;
+bool TestCollision(AABB *o,AABB *e,ID3DXMesh* Mesh1,ID3DXMesh* Mesh2);
+void GetCollisionFaces(AABB *o,AABB *e,std::vector<std::pair<int,int> > *tripair, ID3DXMesh *Mesh1,ID3DXMesh *Mesh2);
+//===================================================================================
+//===========下面这两个函数调用很重要，碰撞检测只要使用这个函数即可==================
+//===================================================================================
+void TravelAABBTree(AABB *r,void (*fun)(AABB *b));
+bool CollisionDetection(ID3DXMesh *Mesh1,ID3DXMesh *Mesh2,std::vector<std::pair<int,int> > *tripair);
+////x-aab
+//bool F[128][128][128];
+////bool DP[128][128][128][8][8][8];
+//int mxx,mxy,mxz;
+//float ux,uy,uz;
+//enum SpritAxis{X,Y,Z};
+//const float JD = 1.0f;
 
-	float r = e.x * abs(p.n.x) + e.y * abs(p.n.y) + e.z * abs(p.n.z);
-	
-	float s = Dot(p.n,c)-p.d;
-	return abs(s) <= r;
-}
-//AABB与三角形之间的相交测试
-BOOL TestTriangleAABB(const D3DXVECTOR3 &v0, const D3DXVECTOR3 &v1, D3DXVECTOR3 &v2, const d3d::BoundingBox &b){
-	float p0,p1,p2,r;
 
-	//compute box center and extents
-	D3DXVECTOR3 c = (b._min + b._max) * 0.5f;
-	D3DXVECTOR3 e = b._max - c;
-
-	v0 = v0 - c;
-	v1 = v1 - c;
-	v2 = v2 - c;
-
-	//Test the three axes corresponding to the face normals of AABB b
-	if(Max3(v0.x,v1.x,v2.x) < -e.x || Min3(v0.x,v1.x,v2.x) > e.x) return 0;
-	if(Max3(v0.y,v1.y,v2.y) < -e.y || Min3(v0.y,v1.y,v2.y) > e.y) return 0;
-	if(Max3(v0.z,v1.z,v2.z) < -e.z || Min3(v0.z,v1.z,v2.z) > e.z) return 0;
-
-	//compute edge vectors for triangle
-	D3DXVECTOR3 f0 = v1 - v0, f1 = v2 - v1, f2 = v0 - v2;
-	//Test axes a00...a22
-	D3DXVECTOR3 a[9] = {D3DXVECTOR3(0,-f0.z,f0.y),D3DXVECTOR3(0,-f1.z,f1.y),D3DXVECTOR3(0,-f2.z,f2.y),
-		D3DXVECTOR3(f0.z,0,-f0.x),D3DXVECTOR3(f1.z,0,-f1.x),D3DXVECTOR3(f2.z,0,-f2.x),
-		D3DXVECTOR3(-f0.y,f0.x,0),D3DXVECTOR3(-f1.y,f1.x,0),D3DXVECTOR3(-f2.y,f2.x,0)
-	};
-	for(int i = 0; i < 9; ++i){
-		float p0 = Dot(v0,a[i]);
-		float p1 = Dot(v1,a[i]);
-		float p2 = Dot(v2,a[i]);
-		if(max(-Max3(p0,p1,p2),Min3(p0,p1,p2)) > r) return 0;
-	}
-
-	//Test separating axis correspoinding to triangle face normal
-	d3d::Plane p;
-	p.n = Cross(f0,f1);
-	p.d = Dot(p.n,v0);
-	return TestAABBPlane(b,p);
-}
-BOOL IntersectSegmentPlane(const D3DXVECTOR3 &a, const D3DXVECTOR3 &b, const d3d::Plane &p,const D3DXVECTOR3 &q){
-	D3DXVECTOR3 ab = b - a;
-	float t = (p.d - Dot(p.n,a)) / Dot(p.n,ab);
-	if(t >= 0.0f && t <= 1.0f){
-		q = a + t * ab;
-		return true;
-	}
-	return false;
-}
-
-D3DXVECTOR3 EdgeNormal(const D3DXVECTOR3 &a, const D3DXVECTOR3 &b){
-	const D3DXVECTOR3 c = b - a;
-	swap(c.x,c.y);
-	c.x = -c.x;
-	return c;
-}
-
-BOOL TestTriangleTriangle(const D3DXVECTOR3 t1[3],const D3DXVECTOR3 t2[3]){
-	D3DXVECTOR3 n1 = cross(t1[1]-t1[0],t1[2]-t1[0]);
-	D3DXVECTOR3 n2 = cross(t2[1]-t2[0],t2[2]-t2[0]);
-	float d = Dot(n2,t2[0]);
-	Plane p2(n2,d);
-	//这里处理特殊情况：三角形1与三角形2处在同一个平面中
-	if(FLTEQ(0,corss(n1,n2)){
-		if(FLTEQ(Dot(n2,t1[0]),d)){
-
-		}else{
-			return false;
-		}
-	}
-
-	
-}
+////void dp(){
+////	for(int i = 0; i <= mxx; ++i){
+////		for(int j = 0; j <= mxy; ++j){
+////			for(int k = 0; k <= mxz; ++k){
+////				dp[i][j][k][0][0][0] = F[i][j][k];
+////			}
+////		}
+////	}
+////	for(int n = 0; (1<<n) <= mxx; ++n){
+////		for(int m = 0; (1<<m) <= mxy; ++m){
+////			for(int q = 0; (1<<q) <= mxz; ++q){
+////				if(n == 0 && m == 0 && q == 0) continue;
+////				for(int i = 0; i+(1<<n)<= mxx; ++i){
+////					for(int j = 0; j+(1<<m)<=mxy;++j){
+////						for(int k = 0; k+(1<<q)<=mxz;++k){
+////							if(n == 0 && m == 0){
+////								dp[i][j][k][n][m][q] = dp[i][j][k][n][m][q-1] || d[i-(1<<(q-1))][j][k][n][m][q-1];
+////							}else if(n == 0){
+////								dp[i][j][k][n][m][q] = dp[i][j][k][n][m-1][q] || dp[i][j-(1<<(m-1))][k][n][m-1][q];
+////							}else{
+////								dp[i][j][k][n][m][q] = dp[i][j][k][n-1][m][q] || dp[i-(1<<(q-1))][j][k][n-1][m][q];
+////							}
+////						}
+////					}
+////				}
+////			}
+////		}
+////	}
+////}
+//
+////bool query(int x1,int x2,int y1,int y2,int z1,int z2){
+////	int kx = log(x2-x1)/log(2.0);
+////	int ky = log(y2-y1)/log(2.0);
+////	int kz = log(z2-z1)/log(2.0);
+////	return dp[x1][y1][z1][kx][ky][kz] ||
+////		dp[x2-(1<<kx)+1][y1][z1][kx][ky][kz] ||
+////		dp[x1][y2-(1<<ky)+1][z1][kx][ky][kz] ||
+////		dp[x1][y1][z2-(1<<kz)+1][kx][ky][kz] ||
+////		dp[x2-(1<<kx)+1][y2-(1<<ky)+1][z1][kx][ky][kz] ||
+////		dp[x2-(1<<kx)+1][y1][z2-(1<<kz)+1][kx][ky][kz] ||
+////		dp[x1][y2-(1<<ky)+1][z2-(1<<kz)+1][kx][ky][kz] ||
+////		dp[x2-(1<<kx)+1][y2-(1<<ky)+1][z2-(1<<kz)+1][kx][ky][kz];
+////}
+//
+//void initCD(){
+//	root = new BVT();
+//	aabb = new BVT();
+//	root->bb = boundingBox;
+//	aabb->bb = boundingBox;
+//	for(int i = 0; i < Mesh->GetNumFaces(); ++i){
+//		root->faces.push_back(i);
+//		aabb->faces.push_back(i);
+//	}
+//	root->left = aabb->left = NULL;
+//	root->right = aabb->right = NULL;
+//	OutFile.open("out.txt");
+//	createBVT(root,0,0,0);
+//	ux = (boundingBox._max.x - boundingBox._min.x) / mxx;
+//	uy = (boundingBox._max.y - boundingBox._min.y) / mxy;
+//	uz = (boundingBox._max.z - boundingBox._min.z) / mxz;
+//	OutFile << mxx << " " << mxy << " " << mxz << std::endl;
+//	OutFile.close();
+//	//dp();
+//}
+//
+////void CD(BVT *t1,BVT *t2){
+////
+////}
 #endif
